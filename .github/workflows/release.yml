@@ -1,0 +1,59 @@
+name: 🚀 Auto Version & Release
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🧩 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: ⚙️ Set up Git
+        run: |
+          git fetch --tags
+          git config --global user.name "github-actions"
+          git config --global user.email "actions@github.com"
+
+      - name: 🧠 Get next semantic version
+        id: semver
+        uses: paulhatch/semantic-version@v5.4.0
+        with:
+          tag_prefix: "v"
+          major_pattern: "BREAKING CHANGE"
+          minor_pattern: "feat"
+          patch_pattern: "fix"
+          format: "v${major}.${minor}.${patch}"
+
+      - name: 🏷️ Create Git tag
+        run: |
+          git tag ${{ steps.semver.outputs.version }}
+          git push origin ${{ steps.semver.outputs.version }}
+
+      - name: 🏗️ Build C Project
+        run: |
+          mkdir build && cd build
+          cmake ..
+          make
+
+      - name: 📦 Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: myapp
+          path: build/myapp
+
+      - name: 🚀 Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.semver.outputs.version }}
+          name: "Release ${{ steps.semver.outputs.version }}"
+          body: |
+            Automated release for ${{ steps.semver.outputs.version }}.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
